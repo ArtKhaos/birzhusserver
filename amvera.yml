@@ -6,8 +6,9 @@ meta:
 
 build:
   commands:
-    - npm install
-    - npm run build
+    - npm ci
+  artifacts:
+    "*": "/"
 
 run:
   command: node src/server.js
