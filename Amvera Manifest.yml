@@ -3,14 +3,10 @@ meta:
   toolchain:
     name: npm
     version: 18
-
 build:
-  commands:
-    - npm ci
   artifacts:
-    "*": "/"
-
+    '*': /
 run:
-  command: node src/server.js
-  port: 5001
+  scriptName: src/server.js
   persistenceMount: /data
+  containerPort: 80
