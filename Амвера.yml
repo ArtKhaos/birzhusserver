@@ -1,0 +1,16 @@
+meta:
+  environment: node
+  toolchain:
+    name: npm
+    version: "18"
+build:
+  commands:
+    - npm install
+  artifacts:
+    /: ""
+run:
+  command: node src/server.js
+  port: 5001
+  scriptName: src/server.js
+  containerPort: 80
+  persistenceMount: /data
