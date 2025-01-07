@@ -7,7 +7,8 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Отсутствуют ключи Supabase в переменных окружения');
+    console.error('Отсутствуют ключи Supabase в переменных окружения');
+    process.exit(1);
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey, {
@@ -17,3 +18,4 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 });
 
 export default supabase;
+

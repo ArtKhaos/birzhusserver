@@ -7,11 +7,9 @@ meta:
 build:
   commands:
     - npm install
+    - npm run build
 
 run:
   command: node src/server.js
   port: 5001
-
-volumes:
-  - mount: /data
-    size: 1G
+  persistenceMount: /data

@@ -2,32 +2,35 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import authRoutes from './routes/authRoutes.js';
 import channelRoutes from './routes/channelRoutes.js';
-import './config/telegramBot.js';
-import userRoutes from "./routes/userRoutes.js"; // Инициализация Telegram-бота
+import userRoutes from "./routes/userRoutes.js";
 import cors from 'cors';
+import dotenv from 'dotenv';
+import './config/telegramBot.js';
+
+dotenv.config();
 
 const app = express();
 
 app.use(cors({
-    origin: 'http://localhost:3000', // Разрешить запросы с этого домена
+    origin: ['https://birzhus.vercel.app', 'http://localhost:3000'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true
 }));
+
+
 
 app.use(express.json());
 
-// Использование маршрутов
 app.use('/api', authRoutes);
 app.use('/api', channelRoutes);
 app.use('/api', userRoutes);
 
-
 const PORT = process.env.PORT || 5001;
+
 const server = app.listen(PORT, () => {
     console.log(`Сервер запущен на порту ${PORT}`);
 });
 
-
-
-// Создание WebSocket-сервера
 const wss = new WebSocketServer({ server });
 
 wss.on('connection', (ws) => {
