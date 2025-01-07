@@ -5,12 +5,12 @@ meta:
     version: 18
 
 build:
-  artifacts:
-    "*": "/"
+  commands:
+    - npm install
 
 run:
-  command: npm start
-  port: 80
+  command: node src/server.js
+  port: 5001
 
 volumes:
   - mount: /data
