@@ -1,13 +1,14 @@
-import supabase from '../config/supabase.js';
-
 export const getUserData = async (req, res) => {
     const { token } = req.query;
+    console.log('Received token:', token);
 
     const { data, error } = await supabase
         .from('users')
-        .select('username, image_url, telegram_id')
+        .select('*')
         .eq('token', token)
-        .maybeSingle(); // Используйте maybeSingle вместо single
+        .maybeSingle();
+
+    console.log('Raw data from Supabase:', data);
 
     if (error) {
         console.error('Ошибка при получении данных пользователя:', error);
@@ -18,6 +19,6 @@ export const getUserData = async (req, res) => {
         return res.status(404).json({ error: 'Пользователь не найден' });
     }
 
+    console.log('Data being sent to client:', data);
     res.json(data);
 };
-

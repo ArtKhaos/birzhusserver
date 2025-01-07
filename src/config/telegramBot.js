@@ -1,101 +1,73 @@
 import TelegramBot from 'node-telegram-bot-api';
 import supabase from './supabase.js';
-import { wss } from '../server.js'; // Импорт WebSocket-сервера
-import { WebSocket } from 'ws';
-import dotenv from "dotenv"; // Импорт WebSocket из библиотеки ws
+import dotenv from "dotenv";
 
 dotenv.config();
-
 const token = process.env.TELEGRAM_API_KEY;
 const bot = new TelegramBot(token, { polling: true });
 
-bot.onText(/\/start (.+)/, async (msg, match) => {
+bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
-    const userToken = match[1];
+    const userId = msg.from.id;
 
-    const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('token', userToken)
-        .single();
+    try {
+        const { data, error } = await supabase
+            .from('users')
+            .upsert({
+                telegram_id: userId,
+                username: msg.from.username,
+                image_url: `https://t.me/i/userpic/320/${msg.from.username}.jpg`
+            });
 
-    if (error || !data) {
-        bot.sendMessage(chatId, 'Неверный токен или пользователь не найден.');
-        return;
-    }
+        if (error) throw error;
 
-    bot.sendMessage(chatId, 'Нажмите кнопку ниже, чтобы завершить авторизацию.', {
-        reply_markup: {
-            inline_keyboard: [[{
-                text: 'Авторизоваться',
-                callback_data: `auth_${userToken}`
-            }]]
-        }
-    });
-});
+        const webAppUrl = process.env.WEBAPP_URL || 'https://your-webapp-url.com';
 
-bot.on('callback_query', async (callbackQuery) => {
-    const chatId = callbackQuery.message.chat.id;
-    const userToken = callbackQuery.data.split('_')[1];
-
-    // Извлечение имени пользователя
-    const username = callbackQuery.from.first_name || callbackQuery.from.username;
-    const photoUrl = `https://t.me/i/userpic/320/${callbackQuery.from.username}.jpg`;
-
-    const { data, error } = await supabase
-        .from('users')
-        .update({ telegram_id: chatId, username: username, image_url: photoUrl })
-        .eq('token', userToken);
-
-    if (error) {
-        bot.sendMessage(chatId, 'Ошибка при завершении авторизации. Попробуйте еще раз.');
-    } else {
-        bot.sendMessage(chatId, 'Вы успешно авторизованы! Вернитесь на сайт, страница обновится автоматически');
-
-        // Отправка сигнала на фронтенд
-        wss.clients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ type: 'AUTH_SUCCESS', token: userToken }));
+        bot.sendMessage(chatId, 'Добро пожаловать! Нажмите кнопку ниже, чтобы открыть веб-приложение.', {
+            reply_markup: {
+                keyboard: [[{ text: 'Открыть веб-приложение', web_app: { url: webAppUrl } }]],
+                resize_keyboard: true
             }
         });
+    } catch (error) {
+        console.error('Ошибка при обработке команды /start:', error);
+        bot.sendMessage(chatId, 'Произошла ошибка. Пожалуйста, попробуйте позже.');
     }
 });
 
-bot.on('my_chat_member', async (msg) => {
-    const chat = msg.chat;
-    const newChatMember = msg.new_chat_member;
+bot.onText(/\/addchannel/, async (msg) => {
+    const chatId = msg.chat.id;
 
-    console.log('Получено событие my_chat_member:', msg);
+    bot.sendMessage(chatId, 'Пожалуйста, добавьте меня в ваш канал как администратора, затем перешлите любое сообщение из канала сюда.');
+});
 
-    if (newChatMember && newChatMember.status === 'administrator' && newChatMember.user.username === 'birzhusbot') {
+bot.on('channel_post', async (msg) => {
+    if (msg.chat.type === 'channel') {
+        const channelId = msg.chat.id;
+        const channelTitle = msg.chat.title;
+        const channelUsername = msg.chat.username;
+
         try {
-            const chatInfo = await bot.getChat(chat.id);
+            const chatInfo = await bot.getChat(channelId);
+            const chatPhotoUrl = chatInfo.photo ? await bot.getFileLink(chatInfo.photo.big_file_id) : null;
 
-            if (chatInfo.type === 'channel') {
-                let chatPhotoUrl = null;
-                if (chatInfo.photo) {
-                    const fileId = chatInfo.photo.big_file_id;
-                    const file = await bot.getFile(fileId);
-                    chatPhotoUrl = `https://api.telegram.org/file/bot${token}/${file.file_path}`;
-                }
+            const { data, error } = await supabase
+                .from('channels')
+                .upsert({
+                    channel_id: channelId,
+                    title: channelTitle,
+                    username: channelUsername,
+                    image_url: chatPhotoUrl,
+                    link: `https://t.me/${channelUsername}`,
+                    status: true
+                });
 
-                const { data, error } = await supabase
-                    .from('channels')
-                    .upsert({
-                        channel_id: chatInfo.id,
-                        title: chatInfo.title,
-                        image_url: chatPhotoUrl,
-                        username: chatInfo.username,
-                    });
+            if (error) throw error;
 
-                if (error) {
-                    console.error('Ошибка при добавлении канала в базу данных:', error);
-                } else {
-                    console.log('Канал успешно добавлен в базу данных:', data);
-                }
-            }
+            bot.sendMessage(channelId, 'Канал успешно добавлен в систему!');
         } catch (error) {
-            console.error('Ошибка при обработке события добавления администратора:', error);
+            console.error('Ошибка при добавлении канала:', error);
+            bot.sendMessage(channelId, 'Произошла ошибка при добавлении канала. Пожалуйста, попробуйте позже.');
         }
     }
 });
